@@ -2,7 +2,6 @@ from base64 import b85encode, b64encode, b85decode
 from functools import partial
 import json
 import os
-import requests
 import time
 import typing
 
@@ -11,6 +10,7 @@ from Crypto.Protocol.KDF import scrypt
 import flask
 from flask import request
 from redis import Redis
+import requests
 import zstandard as zstd
 
 
