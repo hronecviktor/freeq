@@ -1,4 +1,4 @@
-from base64 import b85encode, b64encode, b85decode
+from base64 import b64decode, b64encode
 from functools import partial
 import json
 import time
@@ -27,7 +27,6 @@ class Queue:
     def __init__(self, name, access_key, secret_key, *, server_addr="qu.0x.no"):
         self.name = name
         self.access_key = access_key
-        self.secret_key = secret_key
         self.addr = server_addr
         self.compressor = zstd.ZstdCompressor()
         self.decompressor = zstd.ZstdDecompressor()
@@ -35,69 +34,68 @@ class Queue:
         self.fernet = Fernet(self.fernet_key)
 
     def get(self, ack: bool = True, block: bool = False) -> typing.Union[Event, None]:
-        try:
-            while True:
-                resp = requests.get(
-                    f"https://{self.addr}/{self.name}/{self.access_key}",
-                    params={"ack": ack, "block": block},
-                )
-                resp.raise_for_status()
-                # Poll until we get an event, or return None if we're not blocking
-                if not block:
-                    break
-                if resp.status_code == 200:
-                    break
-            if resp.status_code == 204:
-                return None
-
-        except requests.exceptions.HTTPError:
-            # TODO log
+        while True:
+            resp = requests.get(
+                f"https://{self.addr}/{self.name}/{self.access_key}",
+                params={"ack": ack, "block": block},
+            )
+            resp.raise_for_status()
+            # Poll until we get an event, or return None if we're not blocking
+            if not block:
+                break
+            if resp.status_code == 200:
+                break
+        # Non-blocking and empty queue
+        if resp.status_code == 204:
             return None
-        data = resp.json()
 
+        payload = resp.json()
         event = Event(
             self,
-            data["_tstamp"],
+            payload["tstamp"],
             **json.loads(
                 self.decompressor.decompress(
-                    self.fernet.decrypt(b85decode(data["_data"]))
+                    self.fernet.decrypt(b64decode(payload["event"]["data"]))
                 )
             ),
         )
         return event
 
-    def put(self, data) -> typing.Union[str, None]:
+    def put(self, data: dict) -> typing.Union[str, None]:
+        if not isinstance(data, dict):
+            raise ValueError(
+                "Event must be JSON-serializable dict. Encode binary data with base64 / base85."
+            )
         try:
             data = dumps(data).encode()
         except (TypeError, OverflowError):
             raise ValueError(
-                "Event must be JSON-serializable. Encode binary data with base64 / base85."
+                "Event must be JSON-serializable dict. Encode binary data with base64 / base85."
             )
         event_data = self.compressor.compress(data)
         encrypted_data = self.fernet.encrypt(event_data)
-        b85data = b85encode(encrypted_data).decode()
+        b64data = b64encode(encrypted_data).decode()
         tstamp = time.time_ns()
         payload = {
-            "_tstamp": tstamp,
-            "_data": b85data,
+            "data": b64data,
         }
-        try:
-            resp = requests.post(
-                f"https://{self.addr}/{self.name}/{self.access_key}",
-                json=payload,
-            )
-            resp.raise_for_status()
-        except requests.exceptions.HTTPError:
-            # TODO log
-            return None
+        resp = requests.post(
+            f"https://{self.addr}/{self.name}/{self.access_key}",
+            json=payload,
+        )
+        resp.raise_for_status()
         return str(tstamp)
 
     def ack(self, tstamp) -> bool:
-        try:
-            resp = requests.post(
-                f"https://{self.addr}/{self.name}/{self.access_key}/{tstamp}",
-            )
-            resp.raise_for_status()
-            return True
-        except requests.exceptions.HTTPError:
-            return False
+        resp = requests.post(
+            f"https://{self.addr}/{self.name}/{self.access_key}/{tstamp}",
+        )
+        resp.raise_for_status()
+        return True
+
+    def clear(self) -> bool:
+        resp = requests.delete(
+            f"https://{self.addr}/{self.name}/{self.access_key}",
+        )
+        resp.raise_for_status()
+        return True

@@ -1,7 +1,4 @@
-async_timeout # probably arm only?
 cryptography
-flask
 pycryptodome
-redis[hiredis]
 requests
 zstandard
