@@ -31,3 +31,19 @@ pip install -U freeq
             secret_key='i_shit_when_i_sneeze')              # made up, never leaves the client
 > event = q.get()
 ```
+## Limitations
+
+The server runs on free-tier infra (for now), so each queue is limited to:
+- 2048 messages per queue (after encryption and compression)
+- 2048 bytes per message
+- messages expire after 48 hours
+
+You can [run your own server](https://github.com/hronecviktor/freeq-server) to get around this.
+Configure the client to use it with env vars:
+```FREEQ_SERVER_ADDRS=https://server1.com,https://server2.com```
+
+## Contributing
+
+PRs and issues are welcome. OpenAPI / swagger schema available @ https://weyland.yutani.enterprises/docs so feel free to generate a client for [insert language] using e.g. [openapi-generator](https://openapi-generator.tech/).
+
+Please make sure your client **encrypts everything** and behaves the same on blocking calls.
