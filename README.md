@@ -34,8 +34,8 @@ pip install -U freeq
 ## Limitations
 
 The server runs on free-tier infra (for now), so each queue is limited to:
-- 2048 messages per queue (after encryption and compression)
-- 2048 bytes per message
+- 2048 messages per queue
+- 2048 bytes per message (after encryption and compression)
 - messages expire after 48 hours
 
 You can [run your own server](https://github.com/hronecviktor/freeq-server) to get around this.
@@ -44,6 +44,8 @@ Configure the client to use it with env vars:
 
 ## Contributing
 
-PRs and issues are welcome. OpenAPI / swagger schema available @ https://weyland.yutani.enterprises/docs so feel free to generate a client for [insert language] using e.g. [openapi-generator](https://openapi-generator.tech/).
+PRs and issues are welcome, there is barely any code so should be easy to get a grasp of it. 
 
-Please make sure your client **encrypts everything** and behaves the same on blocking calls.
+OpenAPI / swagger schema available @ https://weyland.yutani.enterprises/docs so feel free to generate a client for [insert language] using e.g. [openapi-generator](https://openapi-generator.tech/).
+
+Please make sure your client **encrypts everything** and doesn't spam the API too much.

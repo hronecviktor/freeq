@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "freeq"
-version = "0.0.17"
+version = "0.0.19"
 description = "Zero-setup queue with e2e encryption for free in 1 line of code"
 readme = "README.md"
 authors = [

@@ -1,3 +1,5 @@
+import time
+
 from base64 import b64decode, b64encode
 from functools import partial
 import json
@@ -50,7 +52,7 @@ class Queue:
         while True:
             resp = requests.get(
                 f"{server}/{self.name}/{self.access_key}",
-                params={"ack": ack, "block": block},
+                params={"ack": ack},
             )
             resp.raise_for_status()
             # Poll until we get an event, or return None if we're not blocking
@@ -58,6 +60,7 @@ class Queue:
                 break
             if resp.status_code == 200:
                 break
+            time.sleep(5)
         # Non-blocking and empty queue
         if resp.status_code == 204:
             return None
