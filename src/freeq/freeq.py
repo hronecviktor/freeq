@@ -8,7 +8,7 @@ import random
 import typing
 
 from cryptography.fernet import Fernet
-from Crypto.Protocol.KDF import scrypt
+from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 import requests
 import zstandard as zstd
 
@@ -45,7 +45,8 @@ class Queue:
         self.access_key = access_key
         self.compressor = zstd.ZstdCompressor()
         self.decompressor = zstd.ZstdDecompressor()
-        self.fernet_key = b64encode(scrypt(secret_key, b"", 32, N=2**14, r=8, p=1))
+        kdf = Scrypt(salt=b"", length=32, n=2**14, r=8, p=1)
+        self.fernet_key = b64encode(kdf.derive(secret_key))
         self.fernet = Fernet(self.fernet_key)
 
     def get(self, ack: bool = True, block: bool = False) -> typing.Union[Event, None]:
