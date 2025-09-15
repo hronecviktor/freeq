@@ -7,7 +7,7 @@ import os
 import random
 import typing
 
-from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 import requests
 import zstandard as zstd
@@ -46,8 +46,8 @@ class Queue:
         self.compressor = zstd.ZstdCompressor()
         self.decompressor = zstd.ZstdDecompressor()
         kdf = Scrypt(salt=b"", length=32, n=2**14, r=8, p=1)
-        self.fernet_key = b64encode(kdf.derive(secret_key))
-        self.fernet = Fernet(self.fernet_key)
+        key = kdf.derive(secret_key.encode())
+        self.aesgcm = AESGCM(key)
 
     def get(self, ack: bool = True, block: bool = False) -> typing.Union[Event, None]:
         while True:
@@ -67,12 +67,13 @@ class Queue:
             return None
 
         payload = resp.json()
+        nonce, data = payload["event"]["data"].split(":")
         event = Event(
             self,
             payload["tstamp"],
             **json.loads(
                 self.decompressor.decompress(
-                    self.fernet.decrypt(b64decode(payload["event"]["data"]))
+                    self.aesgcm.decrypt(b64decode(nonce), b64decode(data), None)
                 )
             ),
         )
@@ -90,10 +91,12 @@ class Queue:
                 "Event must be JSON-serializable dict. Encode binary data with base64 / base85."
             )
         event_data = self.compressor.compress(data)
-        encrypted_data = self.fernet.encrypt(event_data)
+        nonce = os.urandom(12)
+        encrypted_data = self.aesgcm.encrypt(nonce, event_data, None)
         b64data = b64encode(encrypted_data).decode()
+        b64nonce = b64encode(nonce).decode()
         payload = {
-            "data": b64data,
+            "data": f"{b64nonce}:{b64data}",
         }
         resp = requests.post(
             f"{server}/{self.name}/{self.access_key}",
